@@ -1,10 +1,10 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * the License. You may obtain a copy of the License at
  *
  *    http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.kafka.streams.kstream.internals;
 
 import org.apache.kafka.common.serialization.Serde;
@@ -66,10 +65,10 @@ public class KTableMapValuesTest {
         String topic1 = "topic1";
 
         KTable<String, String> table1 = builder.table(stringSerde, stringSerde, topic1, "anyStoreName");
-        KTable<String, Integer> table2 = table1.mapValues(new ValueMapper<String, Integer>() {
+        KTable<String, Integer> table2 = table1.mapValues(new ValueMapper<CharSequence, Integer>() {
             @Override
-            public Integer apply(String value) {
-                return new Integer(value);
+            public Integer apply(CharSequence value) {
+                return value.charAt(0) - 48;
             }
         });
 
@@ -78,11 +77,11 @@ public class KTableMapValuesTest {
 
         driver = new KStreamTestDriver(builder, stateDir);
 
-        driver.process(topic1, "A", "01");
-        driver.process(topic1, "B", "02");
-        driver.process(topic1, "C", "03");
-        driver.process(topic1, "D", "04");
-
+        driver.process(topic1, "A", "1");
+        driver.process(topic1, "B", "2");
+        driver.process(topic1, "C", "3");
+        driver.process(topic1, "D", "4");
+        driver.flushState();
         assertEquals(Utils.mkList("A:1", "B:2", "C:3", "D:4"), proc2.processed);
     }
 
@@ -120,7 +119,6 @@ public class KTableMapValuesTest {
         KTableValueGetterSupplier<String, String> getterSupplier4 = table4.valueGetterSupplier();
 
         driver = new KStreamTestDriver(builder, stateDir, null, null);
-
         KTableValueGetter<String, String> getter1 = getterSupplier1.get();
         getter1.init(driver.context());
         KTableValueGetter<String, Integer> getter2 = getterSupplier2.get();
@@ -133,6 +131,7 @@ public class KTableMapValuesTest {
         driver.process(topic1, "A", "01");
         driver.process(topic1, "B", "01");
         driver.process(topic1, "C", "01");
+        driver.flushState();
 
         assertEquals("01", getter1.get("A"));
         assertEquals("01", getter1.get("B"));
@@ -152,6 +151,7 @@ public class KTableMapValuesTest {
 
         driver.process(topic1, "A", "02");
         driver.process(topic1, "B", "02");
+        driver.flushState();
 
         assertEquals("02", getter1.get("A"));
         assertEquals("02", getter1.get("B"));
@@ -170,6 +170,7 @@ public class KTableMapValuesTest {
         assertEquals("01", getter4.get("C"));
 
         driver.process(topic1, "A", "03");
+        driver.flushState();
 
         assertEquals("03", getter1.get("A"));
         assertEquals("02", getter1.get("B"));
@@ -188,6 +189,7 @@ public class KTableMapValuesTest {
         assertEquals("01", getter4.get("C"));
 
         driver.process(topic1, "A", null);
+        driver.flushState();
 
         assertNull(getter1.get("A"));
         assertEquals("02", getter1.get("B"));
@@ -227,26 +229,29 @@ public class KTableMapValuesTest {
         builder.addProcessor("proc", proc, table2.name);
 
         driver = new KStreamTestDriver(builder, stateDir, null, null);
-
         assertFalse(table1.sendingOldValueEnabled());
         assertFalse(table2.sendingOldValueEnabled());
 
         driver.process(topic1, "A", "01");
         driver.process(topic1, "B", "01");
         driver.process(topic1, "C", "01");
+        driver.flushState();
 
         proc.checkAndClearProcessResult("A:(1<-null)", "B:(1<-null)", "C:(1<-null)");
 
         driver.process(topic1, "A", "02");
         driver.process(topic1, "B", "02");
+        driver.flushState();
 
         proc.checkAndClearProcessResult("A:(2<-null)", "B:(2<-null)");
 
         driver.process(topic1, "A", "03");
+        driver.flushState();
 
         proc.checkAndClearProcessResult("A:(3<-null)");
 
         driver.process(topic1, "A", null);
+        driver.flushState();
 
         proc.checkAndClearProcessResult("A:(null<-null)");
     }
@@ -274,26 +279,29 @@ public class KTableMapValuesTest {
         builder.addProcessor("proc", proc, table2.name);
 
         driver = new KStreamTestDriver(builder, stateDir, null, null);
-
         assertTrue(table1.sendingOldValueEnabled());
         assertTrue(table2.sendingOldValueEnabled());
 
         driver.process(topic1, "A", "01");
         driver.process(topic1, "B", "01");
         driver.process(topic1, "C", "01");
+        driver.flushState();
 
         proc.checkAndClearProcessResult("A:(1<-null)", "B:(1<-null)", "C:(1<-null)");
 
         driver.process(topic1, "A", "02");
         driver.process(topic1, "B", "02");
+        driver.flushState();
 
         proc.checkAndClearProcessResult("A:(2<-1)", "B:(2<-1)");
 
         driver.process(topic1, "A", "03");
+        driver.flushState();
 
         proc.checkAndClearProcessResult("A:(3<-2)");
 
         driver.process(topic1, "A", null);
+        driver.flushState();
 
         proc.checkAndClearProcessResult("A:(null<-3)");
     }
